@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="icon_size">@android:dimen/app_icon_size</dimen>
+    <dimen name="item_width">72sp</dimen>
+    <dimen name="text_size">15sp</dimen>
+    <dimen name="text_height">35sp</dimen>  <!-- 2 * text_size + padding -->
+</resources>

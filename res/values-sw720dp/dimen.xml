@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="icon_size">72sp</dimen>
+    <dimen name="item_width">96sp</dimen>
+    <dimen name="text_size">18sp</dimen>
+    <dimen name="text_height">45sp</dimen>  <!-- 2 * text_size + padding -->
+</resources>
