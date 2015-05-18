@@ -120,7 +120,7 @@ public class AppDrawer extends Activity implements AdapterView.OnItemClickListen
     @Override // AdapterView.OnItemClickListener
     public void onItemClick(AdapterView<?> parent, View view, int position, long id)
     {
-        adapterAppList_.doAction(this, R.id.action_open,  position);
+        adapterAppList_.doAction(this, R.id.action_open, position);
     }
     
     @Override // SearchView.OnQueryTextListener
@@ -152,6 +152,8 @@ public class AppDrawer extends Activity implements AdapterView.OnItemClickListen
     @Override // SearchView.OnQueryTextListener
     public boolean onQueryTextSubmit(String p1)
     {
+        if (adapterAppList_.getCount() == 1)
+            adapterAppList_.doAction(this, R.id.action_open, 0);
         return false;
     }
     
