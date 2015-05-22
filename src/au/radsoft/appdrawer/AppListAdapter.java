@@ -302,8 +302,7 @@ public class AppListAdapter extends BaseAdapter
                 && (!testInstallTime || app.info_.firstInstallTime_ > time)
                 && (!testUpdateTime  || app.info_.lastUpdateTime_ > time))
             {
-                if (findAll(app.getPackageName(), text)
-                    || findAll(app.info_.label_, text))
+                if (findAll(app.getPackageName() + " " + app.info_.label_, text))
                 {
                     apps.add(app);
                 }
