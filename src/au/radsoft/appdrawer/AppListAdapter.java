@@ -28,14 +28,14 @@ import android.os.AsyncTask;
 
 public class AppListAdapter extends BaseAdapter
 {
-    private static class Info implements java.io.Serializable
+    private static final class Info implements java.io.Serializable
     {
-        private static final long serialVersionUID = 1L;
+        private static final long serialVersionUID = 2L;
         
-        private final boolean enabled_;
-        private final CharSequence label_;
-        private final long firstInstallTime_;
-        private final long lastUpdateTime_;
+        private /*final*/ boolean enabled_;
+        private /*final*/ CharSequence label_;
+        private /*final*/ long firstInstallTime_;
+        private /*final*/ long lastUpdateTime_;
         
         Info(boolean enabled, CharSequence label, long firstInstallTime, long lastUpdateTime)
         {
@@ -44,9 +44,27 @@ public class AppListAdapter extends BaseAdapter
             firstInstallTime_ = firstInstallTime;
             lastUpdateTime_ = lastUpdateTime;
         }
+        
+        private void writeObject(java.io.ObjectOutputStream out)
+            throws java.io.IOException
+        {
+            out.writeBoolean(enabled_);
+            out.writeUTF(label_.toString());
+            out.writeLong(firstInstallTime_);
+            out.writeLong(lastUpdateTime_);
+        }
+        
+        private void readObject(java.io.ObjectInputStream in)
+            throws java.io.IOException, ClassNotFoundException
+        {
+            enabled_ = in.readBoolean();
+            label_ = in.readUTF();
+            firstInstallTime_ = in.readLong();
+            lastUpdateTime_ = in.readLong();
+        }
     }
     
-    private static class App
+    private static final class App
     {
         App(ResolveInfo ri, ApplicationInfo ai, Info info)
         {
@@ -87,7 +105,7 @@ public class AppListAdapter extends BaseAdapter
         private Drawable img_ = null;
     }
     
-    private static class LabelComparator implements Comparator<App>
+    private static final class LabelComparator implements Comparator<App>
     {
         @Override
         public int compare(App p1, App p2)
@@ -102,7 +120,7 @@ public class AppListAdapter extends BaseAdapter
         }
     }
     
-    private class FilterAsyncTask extends AsyncTask<String, Integer, List<App>>
+    private final class FilterAsyncTask extends AsyncTask<String, Integer, List<App>>
     {
         private final View progress_;
         private final ProgressBar progressBar_;
@@ -223,7 +241,7 @@ public class AppListAdapter extends BaseAdapter
         }
     }
     
-    private class DrawableLoaderAsyncTask extends AsyncTask<App, Void, Drawable>
+    private final class DrawableLoaderAsyncTask extends AsyncTask<App, Void, Drawable>
     {
         private final java.lang.ref.WeakReference<ImageView> v_;
         
