@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
       package="au.radsoft.appdrawer"
-      android:versionCode="2"
-      android:versionName="2">
+      android:versionCode="3"
+      android:versionName="3">
     <uses-sdk android:minSdkVersion="11" android:targetSdkVersion="11" />
+    <supports-screens android:largeScreens="true" android:xlargeScreens="true" />
     <application android:label="@string/app_name"
                  android:icon="@drawable/app_drawer_icon">
         <activity android:name="AppDrawer"
