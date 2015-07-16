@@ -241,12 +241,24 @@ public class AppListAdapter extends BaseAdapter
         }
     }
     
-    static void Set(ImageView v, DrawableLoaderAsyncTask t)
+    void setImageDrawable(ImageView v, App app)
     {
         AsyncTask oldTask = (AsyncTask) v.getTag();
-        v.setTag(t);
+        v.setTag(null);
         if (oldTask != null)
             oldTask.cancel(false);
+            
+        if (app.img_ == null)
+        {
+            v.setImageDrawable(null);
+            DrawableLoaderAsyncTask dlat = new DrawableLoaderAsyncTask(v);
+            v.setTag(dlat);
+            dlat.execute(app);
+        }
+        else
+        {
+            v.setImageDrawable(app.img_);
+        }
     }
     
     private final class DrawableLoaderAsyncTask extends AsyncTask<App, Void, Drawable>
@@ -256,8 +268,6 @@ public class AppListAdapter extends BaseAdapter
         DrawableLoaderAsyncTask(ImageView v)
         {
             v_ = new java.lang.ref.WeakReference<ImageView>(v);
-        
-            Set(v, this);
         }
         
         @Override
@@ -273,8 +283,8 @@ public class AppListAdapter extends BaseAdapter
             ImageView v = v_.get();
             if (v != null && v.getTag() == this)
             {
-                v.setImageDrawable(result);
                 v.setTag(null);
+                v.setImageDrawable(result);
             }
         }
     }
@@ -485,11 +495,7 @@ public class AppListAdapter extends BaseAdapter
         ImageView iconv = (ImageView) v.findViewById(R.id.icon);
         if (iconv != null)
         {
-            iconv.setImageDrawable(app.img_);
-            if (app.img_ == null)
-                new DrawableLoaderAsyncTask(iconv).execute(app);
-            else
-                Set(iconv, null);
+            setImageDrawable(iconv, app);
         }
         
         return v;
