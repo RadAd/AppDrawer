@@ -5,4 +5,9 @@
           android:title="@string/action_search"
           android:showAsAction="ifRoom|collapseActionView"
           android:actionViewClass="android.widget.SearchView" />
+    <item android:id="@+id/action_favourite"
+          android:checkable="true"
+          android:icon="@drawable/important_holo_dark"
+          android:title="@string/action_favourite"
+          android:showAsAction="ifRoom"  />
 </menu>

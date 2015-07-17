@@ -13,11 +13,12 @@ import android.view.View;
 import android.widget.AdapterView;
 import android.widget.GridView;
 import android.widget.SearchView;
-import android.widget.Toast;
+
+import android.graphics.drawable.StateListDrawable;
 
 public class AppDrawer extends Activity implements AdapterView.OnItemClickListener, SearchView.OnQueryTextListener
 {
-    private static String[] suggestions_ = { "google", "microsoft", "samsung", "#disabled", "#new", "#updated" };
+    private static String[] suggestions_ = { AppListAdapter.TAG_DISABLED, AppListAdapter.TAG_NEW, AppListAdapter.TAG_UPDATED };
     
     static void setThreshold(SearchView searchView, int i)
     {
@@ -30,6 +31,9 @@ public class AppDrawer extends Activity implements AdapterView.OnItemClickListen
     private String searchText_ = "";
     private AppListAdapter adapterAppList_;
     private SuggestionAdapter adapterSuggestion_;
+    private java.util.AbstractSet<String> favs_;
+    private MenuItem menuFav_ = null;
+    private StateListDrawable stateFav_ = null;
     
     @Override
     public void onCreate(Bundle savedInstanceState)
@@ -40,6 +44,15 @@ public class AppDrawer extends Activity implements AdapterView.OnItemClickListen
         
         super.onCreate(savedInstanceState);
         
+        favs_ = (java.util.AbstractSet<String>) Utils.loadObject(getFavFile());
+        if (favs_ == null)
+        {
+            favs_ = new java.util.HashSet<String>();
+            favs_.add("google");
+            favs_.add("microsoft");
+            favs_.add("samsung");
+        }
+        
         GridView list = (GridView) findViewById(R.id.list);
         View progress = findViewById(R.id.progress);
         
@@ -49,6 +62,21 @@ public class AppDrawer extends Activity implements AdapterView.OnItemClickListen
         registerForContextMenu(list);
 		
 		setFinishOnTouchOutside(true);
+    }
+    
+    private java.io.File getFavFile()
+    {
+        java.io.File dataDir = getDir("data", MODE_PRIVATE);
+        return new java.io.File(dataDir, "favourites");
+    }
+    
+    private void updateFavIcon()
+    {
+        if (stateFav_ != null)
+        {
+            stateFav_.setState(Utils.getState(menuFav_));
+            menuFav_.setIcon(stateFav_.getCurrent());
+        }
     }
 
     private void enableActionBar()
@@ -82,6 +110,13 @@ public class AppDrawer extends Activity implements AdapterView.OnItemClickListen
             adapterSuggestion_ = new SuggestionAdapter(searchView);
         }
         
+        menuFav_ = menu.findItem(R.id.action_favourite);
+        if (menuFav_ != null)
+        {
+            stateFav_ = (StateListDrawable) menuFav_.getIcon();
+            //menuFav_.setChecked(true);
+        }
+        
         return super.onCreateOptionsMenu(menu);
     }
     
@@ -90,15 +125,32 @@ public class AppDrawer extends Activity implements AdapterView.OnItemClickListen
     {
         switch (item.getItemId())
         {
-        //case R.id.action_add:
-            //adapterAppList_.add();
-            //break;
+        case R.id.action_favourite:
+            {
+                if (searchText_.isEmpty())
+                {
+                    // TODO if string is empty popup explanation message
+                }
+                else
+                {
+                    item.setChecked(!item.isChecked());
+                    updateFavIcon();
+                    
+                    if (item.isChecked())
+                        favs_.add(searchText_.toLowerCase());
+                    else
+                        favs_.remove(searchText_.toLowerCase());
+                        
+                    Utils.storeObject(getFavFile(), favs_);
+                }
+            }
+            break;
             
         default:
             return false;
         }
         
-        //return true;
+        return true;
     }
     
     @Override
@@ -126,23 +178,31 @@ public class AppDrawer extends Activity implements AdapterView.OnItemClickListen
     @Override // SearchView.OnQueryTextListener
     public boolean onQueryTextChange(String newText)
     {
-        java.util.List<CharSequence> suggestions = new java.util.ArrayList<CharSequence>();
-        
-        //adapterAppList_.getSuggestions(newText, suggestions);
-        
-        String query = newText.toLowerCase();
-        for (int i = 0; i < suggestions_.length; i++)
-        {
-            if (suggestions_[i].startsWith(query))
-                suggestions.add(suggestions_[i]);
-        }
-        
-        adapterSuggestion_.updateSuggestions(suggestions);
-        
         //if (newText.length() < 3)
             //newText = "";
         if (!searchText_.equalsIgnoreCase(newText))
         {
+            java.util.List<CharSequence> suggestions = new java.util.ArrayList<CharSequence>();
+            
+            //adapterAppList_.getSuggestions(newText, suggestions);
+            
+            String query = newText.toLowerCase();
+            for (String s : favs_)
+            {
+                if (s.startsWith(query))
+                    suggestions.add(s);
+            }
+            for (String s : suggestions_)
+            {
+                if (s.startsWith(query))
+                    suggestions.add(s);
+            }
+            
+            adapterSuggestion_.updateSuggestions(suggestions);
+            
+            menuFav_.setChecked(favs_.contains(query));
+            updateFavIcon();
+            
             adapterAppList_.filter(newText);
             searchText_ = newText;
         }
@@ -159,7 +219,6 @@ public class AppDrawer extends Activity implements AdapterView.OnItemClickListen
     
     void toast(String msg)
     {
-        Toast toast = Toast.makeText(this, msg, Toast.LENGTH_LONG);
-        toast.show();
+        Utils.toast(this, msg);
     }
 }

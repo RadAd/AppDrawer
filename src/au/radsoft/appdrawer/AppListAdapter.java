@@ -4,7 +4,6 @@ import android.widget.BaseAdapter;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import android.view.LayoutInflater;
 import android.view.View;
@@ -28,6 +27,11 @@ import android.os.AsyncTask;
 
 public class AppListAdapter extends BaseAdapter
 {
+    public static String TAG_ALL = "#all";
+    public static String TAG_DISABLED = "#disabled";
+    public static String TAG_NEW = "#new";
+    public static String TAG_UPDATED = "#updated";
+    
     private static final class Info implements java.io.Serializable
     {
         private static final long serialVersionUID = 2L;
@@ -186,7 +190,7 @@ public class AppListAdapter extends BaseAdapter
         {
             java.io.File infoFile = new java.io.File(cacheDir_, "info");
             
-            java.util.Map<String, Info> infoCache = (java.util.Map<String, Info>) loadObject(infoFile);
+            java.util.Map<String, Info> infoCache = (java.util.Map<String, Info>) Utils.loadObject(infoFile);
             if (infoCache == null)
                 infoCache = new java.util.HashMap<String, Info>();
             java.util.Map<String, Info> infoCacheNew = new java.util.HashMap<String, Info>();
@@ -235,7 +239,7 @@ public class AppListAdapter extends BaseAdapter
             }
             
             if (dirty || infoCacheNew.size() != infoCache.size())
-                storeObject(infoFile, infoCacheNew);
+                Utils.storeObject(infoFile, infoCacheNew);
             
             return apps;
         }
@@ -304,23 +308,23 @@ public class AppListAdapter extends BaseAdapter
         {
             if (!t.isEmpty() && t.charAt(0) == '#')
             {
-                if ("#all".equalsIgnoreCase(t))
+                if (TAG_ALL.equalsIgnoreCase(t))
                 {
                     testEnabled = false;
                     testDisabled = false;
                     testLaunch = false;
                 }
-                else if ("#disabled".equalsIgnoreCase(t))
+                else if (TAG_DISABLED.equalsIgnoreCase(t))
                 {
                     testEnabled = false;
                     testDisabled = true;
                     testLaunch = false;
                 }
-                else if ("#new".equalsIgnoreCase(t))
+                else if (TAG_NEW.equalsIgnoreCase(t))
                 {
                     testInstallTime = true;
                 }
-                else if ("#updated".equalsIgnoreCase(t))
+                else if (TAG_UPDATED.equalsIgnoreCase(t))
                 {
                     testUpdateTime = true;
                 }
@@ -377,48 +381,6 @@ public class AppListAdapter extends BaseAdapter
                 return false;
         }
         return true;
-    }
-    
-    static void storeObject(java.io.File f, Object o)
-    {
-        try
-        {
-            java.io.ObjectOutputStream out = new java.io.ObjectOutputStream(new java.io.FileOutputStream(f));
-            out.writeObject(o);
-            out.close();
-        }
-        catch (java.io.IOException e)
-        {
-            e.printStackTrace();
-            //toast(context, "Saving cache: " + e);
-        }
-    }
-    
-    static Object loadObject(java.io.File f)
-    {
-        try
-        {
-            Object o = null;
-            if (f.exists())
-            {
-                java.io.ObjectInputStream in = new java.io.ObjectInputStream(new java.io.FileInputStream(f));
-                o = in.readObject();
-                in.close();
-            }
-            return o;
-        }
-        catch (ClassNotFoundException e)
-        {
-            e.printStackTrace();
-            //toast(context, "Loading cache: " + e);
-            return null;
-        }
-        catch (java.io.IOException e)
-        {
-            e.printStackTrace();
-            //toast(context, "Loading cache: " + e);
-            return null;
-        }
     }
     
     private static List<App> all_= null;
@@ -506,7 +468,7 @@ public class AppListAdapter extends BaseAdapter
         try
         {
             final App app = apps_.get(position);
-            //toast(context, "Do: " + Integer.toHexString(app.ai_.flags));
+            //Utils.toast(context, "Do: " + Integer.toHexString(app.ai_.flags));
             switch (action)
             {
             case R.id.action_open:
@@ -530,13 +492,13 @@ public class AppListAdapter extends BaseAdapter
         catch (android.content.ActivityNotFoundException e)
         {
             e.printStackTrace();
-            toast(context, "Unable to launch activity.");
+            Utils.toast(context, "Unable to launch activity.");
             return false;
         }
         catch (Exception e)
         {
             e.printStackTrace();
-            toast(context, "Unknown exception: " + e);
+            Utils.toast(context, "Unknown exception: " + e);
             return false;
         }
     }
@@ -546,7 +508,7 @@ public class AppListAdapter extends BaseAdapter
         if (i != null)
             context.startActivity(i);
         else
-            toast(context, "No launch activity.");
+            Utils.toast(context, "No launch activity.");
     }
     
     void openInfo(Context context, String packageName)
@@ -563,13 +525,13 @@ public class AppListAdapter extends BaseAdapter
         final String installer = pm_.getInstallerPackageName(packageName);
         String url = null;
         if (installer == null || installer.isEmpty())
-            toast(context, "No installer registered for this app.");
+            Utils.toast(context, "No installer registered for this app.");
         else if ("com.android.vending".equals(installer))
             url = "market://details?id=" + packageName;
         else if ("com.amazon.venezia".equals(installer))
             url = "amzn://apps/android?p=" + packageName;
         else
-            toast(context, "Unknown installer: " + installer);
+            Utils.toast(context, "Unknown installer: " + installer);
         if (url != null)
         {
             Intent i = new Intent(Intent.ACTION_VIEW);
@@ -577,11 +539,5 @@ public class AppListAdapter extends BaseAdapter
             i.setData(Uri.parse(url));
             context.startActivity(i);
         }
-    }
-
-    static void toast(Context context, String msg)
-    {
-        Toast toast = Toast.makeText(context, msg, Toast.LENGTH_LONG);
-        toast.show();
     }
 }
