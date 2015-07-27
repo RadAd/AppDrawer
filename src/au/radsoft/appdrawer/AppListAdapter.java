@@ -36,17 +36,19 @@ public class AppListAdapter extends BaseAdapter
     
     private static final class Info implements java.io.Serializable
     {
-        private static final long serialVersionUID = 2L;
+        private static final long serialVersionUID = 3L;
         
         private /*final*/ boolean enabled_;
         private /*final*/ CharSequence label_;
+        private /*final*/ boolean canLaunch_;
         private /*final*/ long firstInstallTime_;
         private /*final*/ long lastUpdateTime_;
         
-        Info(boolean enabled, CharSequence label, long firstInstallTime, long lastUpdateTime)
+        Info(boolean enabled, CharSequence label, boolean canLaunch, long firstInstallTime, long lastUpdateTime)
         {
             enabled_ = enabled;
             label_ = label;
+            canLaunch_ = canLaunch;
             firstInstallTime_ = firstInstallTime;
             lastUpdateTime_ = lastUpdateTime;
         }
@@ -56,6 +58,7 @@ public class AppListAdapter extends BaseAdapter
         {
             out.writeBoolean(enabled_);
             out.writeUTF(label_.toString());
+            out.writeBoolean(canLaunch_);
             out.writeLong(firstInstallTime_);
             out.writeLong(lastUpdateTime_);
         }
@@ -65,6 +68,7 @@ public class AppListAdapter extends BaseAdapter
         {
             enabled_ = in.readBoolean();
             label_ = in.readUTF();
+            canLaunch_ = in.readBoolean();
             firstInstallTime_ = in.readLong();
             lastUpdateTime_ = in.readLong();
         }
@@ -72,9 +76,8 @@ public class AppListAdapter extends BaseAdapter
     
     private static final class App
     {
-        App(ResolveInfo ri, ApplicationInfo ai, Info info)
+        App(ApplicationInfo ai, Info info)
         {
-            ri_ = ri;
             ai_ = ai;
             info_ = info;
         }
@@ -83,8 +86,9 @@ public class AppListAdapter extends BaseAdapter
         {
             if (img_ == null)
             {
-                if (ri_ != null)
-                    img_ = ri_.loadIcon(pm);
+                ResolveInfo ri = getResolveInfo(pm, ai_);
+                if (ri != null)
+                    img_ = ri.loadIcon(pm);
                 else
                     img_ = pm.getApplicationIcon(ai_);
             }
@@ -102,10 +106,9 @@ public class AppListAdapter extends BaseAdapter
         
         boolean canLaunch()
         {
-            return ri_ != null;
+            return info_.canLaunch_;
         }
         
-        private final ResolveInfo ri_;
         private final ApplicationInfo ai_;
         private final Info info_;
         private Drawable img_ = null;
@@ -124,6 +127,18 @@ public class AppListAdapter extends BaseAdapter
         {
             return this == p1;
         }
+    }
+    
+    private static ResolveInfo getResolveInfo(PackageManager pm, ApplicationInfo ai)
+    {
+        if (ai.enabled)
+        {
+            Intent intent = pm.getLaunchIntentForPackage(ai.packageName);
+            if (intent != null)
+                // NOTE resolveActivity returns null for disabled packages.
+                return pm.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY);
+        }
+        return null;
     }
     
     private final class FilterAsyncTask extends AsyncTask<String, Integer, List<App>>
@@ -209,28 +224,20 @@ public class AppListAdapter extends BaseAdapter
             {
                 Info info = infoCache.get(pi.packageName);
 
-                ResolveInfo ri = null;
-                if (pi.applicationInfo.enabled)
-                {
-                    Intent intent = pm_.getLaunchIntentForPackage(pi.packageName);
-                    if (intent != null)
-                        // NOTE resolveActivity returns null for disabled packages.
-                        ri = pm_.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY);
-                }
-                
                 if (info == null
                     || pi.applicationInfo.enabled != info.enabled_
                     || pi.lastUpdateTime > info.lastUpdateTime_)
                 {
+                    ResolveInfo ri = getResolveInfo(pm_, pi.applicationInfo);
                     CharSequence label = ri != null ? ri.loadLabel(pm_) : pm_.getApplicationLabel(pi.applicationInfo);
                     // TODO The label could change depending on whether the app is disabled
                     //      So either do not cache label for disabled apps
                     //      or cache disabled status as well so we can see when it has changed
-                    info = new Info(pi.applicationInfo.enabled, label, pi.firstInstallTime, pi.lastUpdateTime);
+                    info = new Info(pi.applicationInfo.enabled, label, ri != null, pi.firstInstallTime, pi.lastUpdateTime);
                     dirty = true;
                 }
                 
-                App app = new App(ri, pi.applicationInfo, info);
+                App app = new App(pi.applicationInfo, info);
                 apps.add(app);
                 infoCacheNew.put(pi.packageName, info);
                 
