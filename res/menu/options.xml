@@ -9,5 +9,5 @@
           android:checkable="true"
           android:icon="@drawable/important_holo_dark"
           android:title="@string/action_favourite"
-          android:showAsAction="ifRoom"  />
+          android:showAsAction="always" />
 </menu>
