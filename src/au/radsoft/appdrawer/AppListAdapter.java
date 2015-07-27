@@ -25,6 +25,8 @@ import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.AsyncTask;
 
+import au.radsoft.utils.CharSequenceUtils;
+
 public class AppListAdapter extends BaseAdapter
 {
     public static String TAG_ALL = "#all";
@@ -114,7 +116,7 @@ public class AppListAdapter extends BaseAdapter
         @Override
         public int compare(App p1, App p2)
         {
-            return au.radsoft.utils.CharSequenceUtils.compareIgnoreCase(p1.info_.label_, p2.info_.label_);
+            return CharSequenceUtils.compareIgnoreCase(p1.info_.label_, p2.info_.label_);
         }
 
         @Override
@@ -220,13 +222,11 @@ public class AppListAdapter extends BaseAdapter
                     || pi.applicationInfo.enabled != info.enabled_
                     || pi.lastUpdateTime > info.lastUpdateTime_)
                 {
-                    if (ri != null)
-                        info = new Info(pi.applicationInfo.enabled, ri.loadLabel(pm_), pi.firstInstallTime, pi.lastUpdateTime);
-                    else
-                        // TODO The label could change depending on whether the app is disabled
-                        //      So either do not cache label for disabled apps
-                        //      or cache disabled status as well so we can see when it has changed
-                        info = new Info(pi.applicationInfo.enabled, pm_.getApplicationLabel(pi.applicationInfo), pi.firstInstallTime, pi.lastUpdateTime);
+                    CharSequence label = ri != null ? ri.loadLabel(pm_) : pm_.getApplicationLabel(pi.applicationInfo);
+                    // TODO The label could change depending on whether the app is disabled
+                    //      So either do not cache label for disabled apps
+                    //      or cache disabled status as well so we can see when it has changed
+                    info = new Info(pi.applicationInfo.enabled, label, pi.firstInstallTime, pi.lastUpdateTime);
                     dirty = true;
                 }
                 
@@ -339,7 +339,8 @@ public class AppListAdapter extends BaseAdapter
                 && (!testInstallTime || app.info_.firstInstallTime_ > time)
                 && (!testUpdateTime  || app.info_.lastUpdateTime_ > time))
             {
-                if (findAll(app.getPackageName() + " " + app.info_.label_, text))
+                CharSequence[] strs = { app.getPackageName(), app.info_.label_ };
+                if (findAny(strs, text))
                 {
                     apps.add(app);
                 }
@@ -361,10 +362,10 @@ public class AppListAdapter extends BaseAdapter
     {
         for (App app : apps_)
         {
-            int b = au.radsoft.utils.CharSequenceUtils.findIgnoreCase(app.info_.label_, 0, query);
+            int b = CharSequenceUtils.findIgnoreCase(app.info_.label_, 0, query);
             if (b == 0 || (b > 0 && app.info_.label_.charAt(b - 1) == ' '))
             {
-                int e = au.radsoft.utils.CharSequenceUtils.find(app.info_.label_, b, ' ');
+                int e = CharSequenceUtils.find(app.info_.label_, b, ' ');
                 if (e < 0)
                     suggestions.add(app.info_.label_.subSequence(b, app.info_.label_.length()));
                 else
@@ -373,14 +374,23 @@ public class AppListAdapter extends BaseAdapter
         }
     }
     
-    static boolean findAll(CharSequence str, String[] text)
+    static boolean findAny(CharSequence[] str, String[] text)
     {
+        boolean ret = true;
         for (String t : text)
         {
-            if (!t.isEmpty() && t.charAt(0) != '#' && au.radsoft.utils.CharSequenceUtils.findIgnoreCase(str, 0, t) < 0)
-                return false;
+            // Essentially ignore empty strings and strings beginning with '#' ie they always match
+            if (!t.isEmpty() && t.charAt(0) != '#')
+            {
+                ret = false;
+                for (CharSequence u : str)
+                {
+                    if (CharSequenceUtils.findIgnoreCase(u, 0, t) >= 0)
+                        return true;
+                }
+            }
         }
-        return true;
+        return ret; // An empty array should match all
     }
     
     private static List<App> all_= null;
@@ -404,13 +414,11 @@ public class AppListAdapter extends BaseAdapter
         //apps_ = filterApps(pm, all_, null);
     }
     
-    public void filter(String text)
+    public void filter(String[] text)
     {
         if (all_ != null)
         {
-            //text = text.trim();
-            //text = text.replaceAll("\\s+", " ");
-            new FilterAsyncTask(null).execute(text.split(" "));
+            new FilterAsyncTask(null).execute(text);
         }
         else
         {

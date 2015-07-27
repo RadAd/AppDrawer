@@ -187,10 +187,26 @@ public class AppDrawer extends Activity implements AdapterView.OnItemClickListen
             //adapterAppList_.getSuggestions(newText, suggestions);
             
             String query = newText.toLowerCase();
-            for (String s : favs_)
+            String[] qs = query.split(" ");
+            for (String fav : favs_)
             {
-                if (s.startsWith(query))
-                    suggestions.add(s);
+                String[] fs = fav.split(" ");
+                
+                boolean add = false;
+                for (String q : qs)
+                {
+                    add = false;
+                    for (String f : fs)
+                    {
+                        if (f.startsWith(q))
+                            add = true;
+                    }
+                    if (!add)
+                        break;
+                }
+                
+                if (add)
+                    suggestions.add(fav);
             }
             for (String s : suggestions_)
             {
@@ -203,7 +219,7 @@ public class AppDrawer extends Activity implements AdapterView.OnItemClickListen
             menuFav_.setChecked(favs_.contains(query));
             updateFavIcon();
             
-            adapterAppList_.filter(newText);
+            adapterAppList_.filter(qs);
             searchText_ = newText;
         }
         return false;
