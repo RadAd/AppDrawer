@@ -1,8 +1,8 @@
 package au.radsoft.appdrawer;
 
-import android.app.Activity;
+import android.content.SharedPreferences;
 
-import android.os.Bundle;
+import android.preference.PreferenceManager;
 
 import android.view.ContextMenu;
 import android.view.Menu;
@@ -16,9 +16,16 @@ import android.widget.SearchView;
 
 import android.graphics.drawable.StateListDrawable;
 
-public class AppDrawer extends Activity implements AdapterView.OnItemClickListener, SearchView.OnQueryTextListener
+// TODO
+// Tags
+// Show recent apps (deprecated in android lollipop)
+// Listen to broadcasts for app install/uninstall to update list ie ACTION_PACKAGE_ADDED / ACTION_PACKAGE_REMOVED
+// finish after launching app
+// apply search when apps finally loaded
+
+public class AppDrawer extends android.app.Activity implements AdapterView.OnItemClickListener, SearchView.OnQueryTextListener
 {
-    private static String[] suggestions_ = { AppListAdapter.TAG_DISABLED, AppListAdapter.TAG_NEW, AppListAdapter.TAG_UPDATED };
+    private static final String[] suggestions_ = { AppListAdapter.TAG_DISABLED, AppListAdapter.TAG_NEW, AppListAdapter.TAG_UPDATED };
     
     static void setThreshold(SearchView searchView, int i)
     {
@@ -36,9 +43,13 @@ public class AppDrawer extends Activity implements AdapterView.OnItemClickListen
     private StateListDrawable stateFav_ = null;
     
     @Override
-    public void onCreate(Bundle savedInstanceState)
+    public void onCreate(android.os.Bundle savedInstanceState)
     {
         enableActionBar();
+        
+        PreferenceManager.setDefaultValues(this, R.xml.preferences, false);
+        if (Preferences.isLightTheme(this))
+            setTheme(R.style.AppThemeActionBarDialog_Light);
         
         setContentView(R.layout.main);
         
@@ -108,6 +119,12 @@ public class AppDrawer extends Activity implements AdapterView.OnItemClickListen
             setThreshold(searchView, 1);
             searchView.setOnQueryTextListener(this);
             adapterSuggestion_ = new SuggestionAdapter(searchView);
+            
+            SharedPreferences sharedPref = getDefaultSharedPreferences();
+            if (sharedPref.getBoolean(Preferences.PREF_SHOW_SEARCH_ON_STARTUP, false))
+            {
+                menuSearch.expandActionView();
+            }
         }
         
         menuFav_ = menu.findItem(R.id.action_favourite);
@@ -143,6 +160,12 @@ public class AppDrawer extends Activity implements AdapterView.OnItemClickListen
                         
                     Utils.storeObject(getFavFile(), favs_);
                 }
+            }
+            break;
+            
+        case R.id.action_preferences:
+            {
+                Preferences.show(this);
             }
             break;
             
@@ -231,6 +254,11 @@ public class AppDrawer extends Activity implements AdapterView.OnItemClickListen
         if (adapterAppList_.getCount() == 1)
             adapterAppList_.doAction(this, R.id.action_open, 0);
         return false;
+    }
+    
+    SharedPreferences getDefaultSharedPreferences()
+    {
+        return PreferenceManager.getDefaultSharedPreferences(this);
     }
     
     void toast(String msg)

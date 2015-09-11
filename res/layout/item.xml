@@ -19,8 +19,7 @@
         android:gravity="top|center_horizontal"
         android:maxLines="2"
         android:ellipsize="end"
-        android:textColor="@android:color/white"
+        android:textColor="?attr/item.text.color"
         android:layout_margin="0dp"/>
             
 </LinearLayout>
-

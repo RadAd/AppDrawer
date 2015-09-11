@@ -1,10 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">App Drawer</string>
+    <string name="app_preferences">Preferences</string>
     <string name="open">Open</string>
     <string name="info">Info...</string>
     <string name="appstore">App Store...</string>
     <string name="action_search">Search</string>
     <string name="action_favourite">Favourite</string>
+    <string name="action_preferences">Preferences...</string>
     <string name="loading">Loading...</string>
+    
+    <string-array name="Themes">
+        <item>Light</item>
+        <item>Dark</item>
+    </string-array>
 </resources>

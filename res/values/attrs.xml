@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <attr name="ic_action_search" format="reference"/>
+    <attr name="ic_action_important" format="reference"/>
+    <attr name="ic_action_preferences" format="reference"/>
+    <attr name="item.text.color" format="reference"/>
+</resources>

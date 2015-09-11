@@ -1,8 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Holo.ActionBarDialog" parent="@android:style/Theme.Holo.Dialog">
-        <item name="android:windowIsFloating">false</item>
-        <item name="android:windowIsTranslucent">true</item>
-        <item name="android:windowSoftInputMode">stateAlwaysHidden</item>
-    </style>
+    <!--android:theme="@android:style/Theme.DeviceDefault.Dialog"-->
+    <style name="AppThemeActionBarDialog" >
+        <item name="android:windowIsFloating" >false</item>
+        <item name="android:windowIsTranslucent" >true</item>
+        <item name="android:windowSoftInputMode" >stateAlwaysHidden</item>
+	</style>
+    <style name="AppThemeActionBarDialog.Light" parent="@android:style/Theme.Holo.Light.Dialog" >
+        <item name="android:windowIsFloating" >false</item>
+        <item name="android:windowIsTranslucent" >true</item>
+        <item name="android:windowSoftInputMode" >stateAlwaysHidden</item>
+        <item name="ic_action_search" >@drawable/ic_action_search_holo_light</item>
+        <item name="ic_action_important" >@drawable/important_holo_light</item>
+        <item name="ic_action_preferences" >@drawable/ic_action_settings_light</item>
+        <item name="item.text.color" >@android:color/black</item>
+	</style>
+    <style name="AppThemeActionBarDialog.Dark" parent="@android:style/Theme.Holo.Dialog" >
+        <item name="android:windowIsFloating" >false</item>
+        <item name="android:windowIsTranslucent" >true</item>
+        <item name="android:windowSoftInputMode" >stateAlwaysHidden</item>
+        <item name="ic_action_search" >@drawable/ic_action_search_holo_dark</item>
+        <item name="ic_action_important" >@drawable/important_holo_dark</item>
+        <item name="ic_action_preferences" >@drawable/ic_action_settings_dark</item>
+        <item name="item.text.color" >@android:color/white</item>
+	</style>
+    <style name="AppThemeDialog.Light" parent="@android:style/Theme.Holo.Light.Dialog" />
+    <style name="AppThemeDialog.Dark" parent="@android:style/Theme.Holo.Dialog" />
 </resources>

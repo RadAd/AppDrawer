@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <ListPreference
+        android:key="pref_theme"
+        android:title="Theme"
+        android:summary="Select which theme to use. Requires restart."
+        android:entries="@array/Themes"
+        android:entryValues="@array/ThemesValues"
+        android:defaultValue="dark" />
+    <CheckBoxPreference
+        android:key="pref_show_search_on_startup"
+        android:title="Show search on startup"
+        android:summary="When opening the app immediately enter search mode."
+        android:defaultValue="false" />
+</PreferenceScreen>
