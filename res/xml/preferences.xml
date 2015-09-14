@@ -7,7 +7,7 @@
         android:entries="@array/Themes"
         android:entryValues="@array/ThemesValues"
         android:defaultValue="dark" />
-    <CheckBoxPreference
+    <SwitchPreference
         android:key="pref_show_search_on_startup"
         android:title="Show search on startup"
         android:summary="When opening the app immediately enter search mode."

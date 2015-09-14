@@ -1,6 +1,5 @@
 package au.radsoft.appdrawer;
 
-import android.widget.BaseAdapter;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -18,17 +17,19 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.util.Log;
 
 import au.radsoft.utils.CharSequenceUtils;
 
-public class AppListAdapter extends BaseAdapter
+public class AppListAdapter extends android.widget.BaseAdapter
 {
+    private static final String LOG_TAG = AppListAdapter.class.getSimpleName();
+    
     public static String TAG_ALL = "#all";
     public static String TAG_DISABLED = "#disabled";
     public static String TAG_NEW = "#new";
@@ -36,61 +37,51 @@ public class AppListAdapter extends BaseAdapter
     
     private static final class Info implements java.io.Serializable
     {
-        private static final long serialVersionUID = 3L;
+        private static final long serialVersionUID = 5L;
         
-        private /*final*/ boolean enabled_;
-        private /*final*/ CharSequence label_;
-        private /*final*/ boolean canLaunch_;
-        private /*final*/ long firstInstallTime_;
-        private /*final*/ long lastUpdateTime_;
+        private final boolean enabled_;
+        private final CharSequence label_;
+        private final String uri_;
+        private final long firstInstallTime_;
+        private final long lastUpdateTime_;
         
-        Info(boolean enabled, CharSequence label, boolean canLaunch, long firstInstallTime, long lastUpdateTime)
+        Info(boolean enabled, CharSequence label, String uri, long firstInstallTime, long lastUpdateTime)
         {
             enabled_ = enabled;
             label_ = label;
-            canLaunch_ = canLaunch;
+            uri_ = uri;
             firstInstallTime_ = firstInstallTime;
             lastUpdateTime_ = lastUpdateTime;
-        }
-        
-        private void writeObject(java.io.ObjectOutputStream out)
-            throws java.io.IOException
-        {
-            out.writeBoolean(enabled_);
-            out.writeUTF(label_.toString());
-            out.writeBoolean(canLaunch_);
-            out.writeLong(firstInstallTime_);
-            out.writeLong(lastUpdateTime_);
-        }
-        
-        private void readObject(java.io.ObjectInputStream in)
-            throws java.io.IOException, ClassNotFoundException
-        {
-            enabled_ = in.readBoolean();
-            label_ = in.readUTF();
-            canLaunch_ = in.readBoolean();
-            firstInstallTime_ = in.readLong();
-            lastUpdateTime_ = in.readLong();
         }
     }
     
     private static final class App
     {
-        App(ApplicationInfo ai, Info info)
+        App(ApplicationInfo ai, Info info, Intent intent)
         {
             ai_ = ai;
             info_ = info;
+            intent_ = intent;
         }
         
         void loadDrawable(PackageManager pm)
         {
+            if (img_ == null && intent_ != null)
+            {
+                Log.d(LOG_TAG, "loadDrawable");
+                try
+                {
+                    img_ = pm.getActivityIcon(intent_);
+                }
+                catch (PackageManager.NameNotFoundException e)
+                {
+                    // ignore
+                }
+                Log.d(LOG_TAG, "-loadDrawable");
+            }
             if (img_ == null)
             {
-                ResolveInfo ri = getResolveInfo(pm, ai_);
-                if (ri != null)
-                    img_ = ri.loadIcon(pm);
-                else
-                    img_ = pm.getApplicationIcon(ai_);
+                img_ = pm.getApplicationIcon(ai_);  // Note: returns default image if none is found
             }
         }
         
@@ -106,15 +97,16 @@ public class AppListAdapter extends BaseAdapter
         
         boolean canLaunch()
         {
-            return info_.canLaunch_;
+            return intent_ != null;
         }
         
         private final ApplicationInfo ai_;
         private final Info info_;
+        private Intent intent_;
         private Drawable img_ = null;
     }
     
-    private static final class LabelComparator implements Comparator<App>
+    private static final class LabelComparator implements java.util.Comparator<App>
     {
         @Override
         public int compare(App p1, App p2)
@@ -127,18 +119,6 @@ public class AppListAdapter extends BaseAdapter
         {
             return this == p1;
         }
-    }
-    
-    private static ResolveInfo getResolveInfo(PackageManager pm, ApplicationInfo ai)
-    {
-        if (ai.enabled)
-        {
-            Intent intent = pm.getLaunchIntentForPackage(ai.packageName);
-            if (intent != null)
-                // NOTE resolveActivity returns null for disabled packages.
-                return pm.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY);
-        }
-        return null;
     }
     
     private final class FilterAsyncTask extends AsyncTask<String, Integer, List<App>>
@@ -162,9 +142,8 @@ public class AppListAdapter extends BaseAdapter
         @Override
         protected List<App> doInBackground(String... texts)
         {
-            if (all_ == null)
-                all_ = loadApps();
-            return filterApps(pm_, all_, texts, this);
+            loadApps();
+            return filterApps(texts, this);
         }
         
         @Override
@@ -203,8 +182,11 @@ public class AppListAdapter extends BaseAdapter
                 progress_.setVisibility(View.GONE);
         }
     
-        private List<App> loadApps()
+        private /*synchronized*/ void loadApps()
         {
+            if (all_ != null)
+                return;
+                
             java.io.File infoFile = new java.io.File(cacheDir_, "info");
             
             java.util.Map<String, Info> infoCache = (java.util.Map<String, Info>) Utils.loadObject(infoFile);
@@ -223,21 +205,35 @@ public class AppListAdapter extends BaseAdapter
             for (PackageInfo pi : installed)
             {
                 Info info = infoCache.get(pi.packageName);
+                Intent intent = null;
 
                 if (info == null
                     || pi.applicationInfo.enabled != info.enabled_
                     || pi.lastUpdateTime > info.lastUpdateTime_)
                 {
-                    ResolveInfo ri = getResolveInfo(pm_, pi.applicationInfo);
+                    intent = pi.applicationInfo.enabled ? pm_.getLaunchIntentForPackage(pi.applicationInfo.packageName) : null;
+                    ResolveInfo ri = intent == null ? null : pm_.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY);
                     CharSequence label = ri != null ? ri.loadLabel(pm_) : pm_.getApplicationLabel(pi.applicationInfo);
-                    // TODO The label could change depending on whether the app is disabled
-                    //      So either do not cache label for disabled apps
-                    //      or cache disabled status as well so we can see when it has changed
-                    info = new Info(pi.applicationInfo.enabled, label, ri != null, pi.firstInstallTime, pi.lastUpdateTime);
+                    String uri = intent == null ? null : intent.toURI().toString();
+                    info = new Info(pi.applicationInfo.enabled, label, uri, pi.firstInstallTime, pi.lastUpdateTime);
                     dirty = true;
                 }
+                else
+                {
+                    if (info.uri_ != null && !info.uri_.isEmpty())
+                    {
+                        try
+                        {
+                            intent = Intent.parseUri(info.uri_, 0);
+                        }
+                        catch (java.net.URISyntaxException e)
+                        {
+                            // ignore
+                        }
+                    }
+                }
                 
-                App app = new App(pi.applicationInfo, info);
+                App app = new App(pi.applicationInfo, info, intent);
                 apps.add(app);
                 infoCacheNew.put(pi.packageName, info);
                 
@@ -248,7 +244,7 @@ public class AppListAdapter extends BaseAdapter
             if (dirty || infoCacheNew.size() != infoCache.size())
                 Utils.storeObject(infoFile, infoCacheNew);
             
-            return apps;
+            all_ = apps;
         }
     }
     
@@ -300,7 +296,7 @@ public class AppListAdapter extends BaseAdapter
         }
     }
     
-    private static List<App> filterApps(PackageManager pm, List<App> all, String[] text, AsyncTask task)
+    private List<App> filterApps(String[] text, AsyncTask task)
     {
         List<App> apps = new java.util.ArrayList<App>();
         
@@ -338,7 +334,7 @@ public class AppListAdapter extends BaseAdapter
             }
         }
         
-        for (App app : all)
+        for (App app : all_)
         {
             if (   (!testEnabled     || app.isEnabled())
                 && (!testDisabled    || !app.isEnabled())
@@ -417,8 +413,8 @@ public class AppListAdapter extends BaseAdapter
         
         String[] text = { };
         new FilterAsyncTask(progress).execute(text);
-        //all_ = loadApps(pm_);
-        //apps_ = filterApps(pm, all_, null);
+        //loadApps();
+        //apps_ = filterApps(null);
     }
     
     public void filter(String[] text)
@@ -480,14 +476,14 @@ public class AppListAdapter extends BaseAdapter
     
     public boolean doAction(Context context, int action, int position)
     {
+        final App app = apps_.get(position);
         try
         {
-            final App app = apps_.get(position);
             //Utils.toast(context, "Do: " + Integer.toHexString(app.ai_.flags));
             switch (action)
             {
             case R.id.action_open:
-                open(context, pm_.getLaunchIntentForPackage(app.getPackageName()));
+                open(context, app.intent_);
                 break;
 
             case R.id.action_info:
@@ -507,7 +503,7 @@ public class AppListAdapter extends BaseAdapter
         catch (android.content.ActivityNotFoundException e)
         {
             e.printStackTrace();
-            Utils.toast(context, "Unable to launch activity.");
+            Utils.toast(context, "Unable to launch activity: " + app.getPackageName());
             return false;
         }
         catch (Exception e)

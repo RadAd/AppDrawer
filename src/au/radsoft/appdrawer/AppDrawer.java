@@ -103,6 +103,7 @@ public class AppDrawer extends android.app.Activity implements AdapterView.OnIte
             params.width = metrics.heightPixels;
         params.height = android.view.WindowManager.LayoutParams.MATCH_PARENT;
         getWindow().setAttributes(params);
+        //getWindow().setFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND, android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND);
     }
 
     @Override
