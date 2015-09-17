@@ -6,4 +6,6 @@
           android:title="@string/info" />
     <item android:id="@+id/action_appstore"
           android:title="@string/appstore" />
+    <item android:id="@+id/action_tags"
+          android:title="@string/tags" />
 </menu>

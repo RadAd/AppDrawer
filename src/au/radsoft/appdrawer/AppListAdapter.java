@@ -18,11 +18,12 @@ import android.content.pm.ResolveInfo;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import android.graphics.drawable.Drawable;
-import android.net.Uri;
 import android.os.AsyncTask;
-import android.util.Log;
+//import android.util.Log;
 
 import au.radsoft.utils.CharSequenceUtils;
 
@@ -30,10 +31,11 @@ public class AppListAdapter extends android.widget.BaseAdapter
 {
     private static final String LOG_TAG = AppListAdapter.class.getSimpleName();
     
-    public static String TAG_ALL = "#all";
-    public static String TAG_DISABLED = "#disabled";
-    public static String TAG_NEW = "#new";
-    public static String TAG_UPDATED = "#updated";
+    private static String TAG_ALL = "#all";
+    private static String TAG_DISABLED = "#disabled";
+    private static String TAG_NEW = "#new";
+    private static String TAG_UPDATED = "#updated";
+    private static final String[] specialtags_ = { AppListAdapter.TAG_DISABLED, AppListAdapter.TAG_NEW, AppListAdapter.TAG_UPDATED };
     
     private static final class Info implements java.io.Serializable
     {
@@ -68,7 +70,6 @@ public class AppListAdapter extends android.widget.BaseAdapter
         {
             if (img_ == null && intent_ != null)
             {
-                Log.d(LOG_TAG, "loadDrawable");
                 try
                 {
                     img_ = pm.getActivityIcon(intent_);
@@ -77,7 +78,6 @@ public class AppListAdapter extends android.widget.BaseAdapter
                 {
                     // ignore
                 }
-                Log.d(LOG_TAG, "-loadDrawable");
             }
             if (img_ == null)
             {
@@ -181,18 +181,37 @@ public class AppListAdapter extends android.widget.BaseAdapter
             if (progress_ != null)
                 progress_.setVisibility(View.GONE);
         }
-    
+        
         private /*synchronized*/ void loadApps()
         {
             if (all_ != null)
                 return;
-                
-            java.io.File infoFile = new java.io.File(cacheDir_, "info");
+
+            {
+                Set<String> favs = (Set<String>) Utils.loadObject(favsFile_);
+                if (favs != null)
+                    favs_ = favs;
+                else
+                {
+                    favs_.add("google");
+                    favs_.add("microsoft");
+                    favs_.add("samsung");
+                    favs_.add("games");
+                    favs_.add("utilities");
+                }
+            }
             
-            java.util.Map<String, Info> infoCache = (java.util.Map<String, Info>) Utils.loadObject(infoFile);
+            {
+                Map<String, Set<String>> tags = (Map<String, Set<String>>) Utils.loadObject(tagsFile_);
+                if (tags != null)
+                    tags_ = tags;
+            }
+            // TODO Remove tags for apps no longer installed
+            
+            Map<String, Info> infoCache = (Map<String, Info>) Utils.loadObject(infoFile_);
             if (infoCache == null)
-                infoCache = new java.util.HashMap<String, Info>();
-            java.util.Map<String, Info> infoCacheNew = new java.util.HashMap<String, Info>();
+                infoCache = new java.util.HashMap();
+            Map<String, Info> infoCacheNew = new java.util.HashMap();
 
             boolean showProgress = infoCache.isEmpty();
             boolean dirty = false;
@@ -242,8 +261,8 @@ public class AppListAdapter extends android.widget.BaseAdapter
             }
             
             if (dirty || infoCacheNew.size() != infoCache.size())
-                Utils.storeObject(infoFile, infoCacheNew);
-            
+                Utils.storeObject(infoFile_, infoCacheNew);
+                
             all_ = apps;
         }
     }
@@ -342,11 +361,29 @@ public class AppListAdapter extends android.widget.BaseAdapter
                 && (!testInstallTime || app.info_.firstInstallTime_ > time)
                 && (!testUpdateTime  || app.info_.lastUpdateTime_ > time))
             {
+                boolean add = false;
+                
                 CharSequence[] strs = { app.getPackageName(), app.info_.label_ };
                 if (findAny(strs, text))
                 {
-                    apps.add(app);
+                    add = true;
                 }
+                
+                final Set<String> thistags = tags_.get(app.getPackageName());
+                if (thistags != null && add == false)
+                {
+                    for (String t : text)
+                    {
+                        if (thistags.contains(t))   // TODO Should this be a partial match?
+                        {
+                            add = true;
+                            break;
+                        }
+                    }
+                }
+                
+                if (add)
+                    apps.add(app);
             }
             
             if (task.isCancelled())
@@ -360,21 +397,62 @@ public class AppListAdapter extends android.widget.BaseAdapter
         return apps;
     }
     
-    // TODO Should we use this? The whole app is a suggestions list!
-    void getSuggestions(String query, List<CharSequence> suggestions)
+    static List<CharSequence> getSuggestions(String[] qs)
     {
-        for (App app : apps_)
+        List<CharSequence> suggestions = new java.util.ArrayList<CharSequence>();
+        
+        for (String fav : favs_)
         {
-            int b = CharSequenceUtils.findIgnoreCase(app.info_.label_, 0, query);
-            if (b == 0 || (b > 0 && app.info_.label_.charAt(b - 1) == ' '))
+            String[] fs = fav.split(" ");
+            
+            boolean add = false;
+            for (String q : qs)
             {
-                int e = CharSequenceUtils.find(app.info_.label_, b, ' ');
-                if (e < 0)
-                    suggestions.add(app.info_.label_.subSequence(b, app.info_.label_.length()));
-                else
-                    suggestions.add(app.info_.label_.subSequence(b, e));
+                add = false;
+                for (String f : fs)
+                {
+                    if (f.startsWith(q))
+                    {
+                        add = true;
+                        break;
+                    }
+                }
+                if (!add)
+                    break;
+            }
+            
+            if (add)
+                suggestions.add(fav);
+        }
+        for (String s : specialtags_)
+        {
+            for (String q : qs)
+            {
+                if (s.startsWith(q))
+                {
+                    suggestions.add(s);
+                    break;
+                }
             }
         }
+        
+        return suggestions;
+    }
+    
+    void updateFav(String text, boolean add)
+    {
+        if (add)
+            favs_.add(text);
+        else
+            // TODO Also remove from all tags
+            favs_.remove(text);
+        
+        Utils.storeObject(favsFile_, favs_);
+    }
+    
+    Set<String> getFavs()
+    {
+        return favs_;
     }
     
     static boolean findAny(CharSequence[] str, String[] text)
@@ -397,19 +475,25 @@ public class AppListAdapter extends android.widget.BaseAdapter
     }
     
     private static List<App> all_= null;
+    private static Set<String> favs_ = new java.util.TreeSet();
+    private static Map<String, Set<String>> tags_ = new java.util.HashMap();    // map package name to tags
     
     private final LayoutInflater layoutInflater_;
     private final PackageManager pm_;
-    private final java.io.File cacheDir_;
+    private final java.io.File favsFile_;
+    private final java.io.File tagsFile_;
+    private final java.io.File infoFile_;
     
     private List<App> apps_ = new java.util.ArrayList<App>();
     private FilterAsyncTask filterAsyncTask_ = null;
 
-    public AppListAdapter(PackageManager pm, LayoutInflater layoutInflater, View progress, java.io.File cacheDir)
+    public AppListAdapter(PackageManager pm, LayoutInflater layoutInflater, View progress, java.io.File dataDir, java.io.File cacheDir)
     {
         layoutInflater_ = layoutInflater;
         pm_ = pm;
-        cacheDir_ = cacheDir;
+        favsFile_ = new java.io.File(dataDir, "favourites");
+        tagsFile_ = new java.io.File(dataDir, "tags");
+        infoFile_ = new java.io.File(cacheDir, "info");
         
         String[] text = { };
         new FilterAsyncTask(progress).execute(text);
@@ -474,6 +558,50 @@ public class AppListAdapter extends android.widget.BaseAdapter
         return v;
     }
     
+    private static final class TagsDialogData implements android.content.DialogInterface.OnMultiChoiceClickListener
+    {
+        final CharSequence[] items_;
+        final boolean[] selected_;
+        boolean dirty_ = false;
+        
+        TagsDialogData(Set<String> alltags, Set<String> apptags)
+        {
+            items_ = new CharSequence[alltags.size()];
+            alltags.toArray(items_);
+            
+            selected_ = new boolean[items_.length];
+            if (apptags != null)
+            {
+                for (String s : apptags)
+                {
+                    int i = java.util.Arrays.binarySearch(items_, s);
+                    if (i >= 0)
+                        selected_[i] = true;
+                }
+            }
+        }
+        
+        Set<String> getTags()
+        {
+            Set<String> apptags = new java.util.HashSet();
+            for (int i = 0; i < items_.length; ++i)
+            {
+                if (selected_[i])
+                    apptags.add(items_[i].toString());
+            }
+            if (apptags.isEmpty())
+                apptags = null;
+            return apptags;
+        }
+        
+        @Override
+        public void onClick(android.content.DialogInterface dialog, int which, boolean isChecked)
+        {
+            selected_[which] = isChecked;
+            dirty_ = true;
+        }
+    }
+    
     public boolean doAction(Context context, int action, int position)
     {
         final App app = apps_.get(position);
@@ -492,6 +620,33 @@ public class AppListAdapter extends android.widget.BaseAdapter
 
             case R.id.action_appstore:
                 openAppStore(context, app.getPackageName());
+                break;
+
+            case R.id.action_tags:
+                {
+                    final TagsDialogData data = new TagsDialogData(favs_, tags_.get(app.getPackageName()));
+                    
+                    android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(context);
+                    android.app.AlertDialog dlg = builder
+                        .setTitle("Tags for " + app.info_.label_)
+                        .setMultiChoiceItems(data.items_, data.selected_, data)
+                        //.setPositiveButton(R.string.ok, null)
+                        //.setNegativeButton(R.string.cancel, null)
+                        .show();
+                    dlg.setOnDismissListener(new android.content.DialogInterface.OnDismissListener()
+                        {
+                            @Override
+                            public void onDismiss(android.content.DialogInterface dialog)
+                            {
+                                if (data.dirty_)
+                                {
+                                    tags_.put(app.getPackageName(), data.getTags());
+                                    
+                                    Utils.storeObject(tagsFile_, tags_);
+                                }
+                            }
+                        });
+                }
                 break;
 
             default:
@@ -527,7 +682,7 @@ public class AppListAdapter extends android.widget.BaseAdapter
         Intent i = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
         i.addCategory(Intent.CATEGORY_DEFAULT);
         i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        i.setData(Uri.parse("package:" + packageName));
+        i.setData(android.net.Uri.parse("package:" + packageName));
         context.startActivity(i);
     }
     
@@ -547,7 +702,7 @@ public class AppListAdapter extends android.widget.BaseAdapter
         {
             Intent i = new Intent(Intent.ACTION_VIEW);
             i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            i.setData(Uri.parse(url));
+            i.setData(android.net.Uri.parse(url));
             context.startActivity(i);
         }
     }

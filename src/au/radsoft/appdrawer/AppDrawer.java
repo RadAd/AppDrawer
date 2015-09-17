@@ -25,8 +25,6 @@ import android.graphics.drawable.StateListDrawable;
 
 public class AppDrawer extends android.app.Activity implements AdapterView.OnItemClickListener, SearchView.OnQueryTextListener
 {
-    private static final String[] suggestions_ = { AppListAdapter.TAG_DISABLED, AppListAdapter.TAG_NEW, AppListAdapter.TAG_UPDATED };
-    
     static void setThreshold(SearchView searchView, int i)
     {
         int autoCompleteTextViewID = searchView.getContext().getResources().getIdentifier("android:id/search_src_text", null, null);
@@ -38,7 +36,6 @@ public class AppDrawer extends android.app.Activity implements AdapterView.OnIte
     private String searchText_ = "";
     private AppListAdapter adapterAppList_;
     private SuggestionAdapter adapterSuggestion_;
-    private java.util.AbstractSet<String> favs_;
     private MenuItem menuFav_ = null;
     private StateListDrawable stateFav_ = null;
     
@@ -55,30 +52,15 @@ public class AppDrawer extends android.app.Activity implements AdapterView.OnIte
         
         super.onCreate(savedInstanceState);
         
-        favs_ = (java.util.AbstractSet<String>) Utils.loadObject(getFavFile());
-        if (favs_ == null)
-        {
-            favs_ = new java.util.HashSet<String>();
-            favs_.add("google");
-            favs_.add("microsoft");
-            favs_.add("samsung");
-        }
-        
         GridView list = (GridView) findViewById(R.id.list);
         View progress = findViewById(R.id.progress);
         
-        adapterAppList_ = new AppListAdapter(getPackageManager(), getLayoutInflater(), progress, getCacheDir());
+        adapterAppList_ = new AppListAdapter(getPackageManager(), getLayoutInflater(), progress, getDir("data", MODE_PRIVATE), getCacheDir());
         list.setAdapter(adapterAppList_);
 		list.setOnItemClickListener(this);
         registerForContextMenu(list);
 		
 		setFinishOnTouchOutside(true);
-    }
-    
-    private java.io.File getFavFile()
-    {
-        java.io.File dataDir = getDir("data", MODE_PRIVATE);
-        return new java.io.File(dataDir, "favourites");
     }
     
     private void updateFavIcon()
@@ -153,13 +135,7 @@ public class AppDrawer extends android.app.Activity implements AdapterView.OnIte
                 {
                     item.setChecked(!item.isChecked());
                     updateFavIcon();
-                    
-                    if (item.isChecked())
-                        favs_.add(searchText_.toLowerCase());
-                    else
-                        favs_.remove(searchText_.toLowerCase());
-                        
-                    Utils.storeObject(getFavFile(), favs_);
+                    adapterAppList_.updateFav(searchText_.toLowerCase(), item.isChecked());
                 }
             }
             break;
@@ -206,41 +182,12 @@ public class AppDrawer extends android.app.Activity implements AdapterView.OnIte
             //newText = "";
         if (!searchText_.equalsIgnoreCase(newText))
         {
-            java.util.List<CharSequence> suggestions = new java.util.ArrayList<CharSequence>();
-            
-            //adapterAppList_.getSuggestions(newText, suggestions);
-            
             String query = newText.toLowerCase();
             String[] qs = query.split(" ");
-            for (String fav : favs_)
-            {
-                String[] fs = fav.split(" ");
-                
-                boolean add = false;
-                for (String q : qs)
-                {
-                    add = false;
-                    for (String f : fs)
-                    {
-                        if (f.startsWith(q))
-                            add = true;
-                    }
-                    if (!add)
-                        break;
-                }
-                
-                if (add)
-                    suggestions.add(fav);
-            }
-            for (String s : suggestions_)
-            {
-                if (s.startsWith(query))
-                    suggestions.add(s);
-            }
             
-            adapterSuggestion_.updateSuggestions(suggestions);
+            adapterSuggestion_.updateSuggestions(adapterAppList_.getSuggestions(qs));
             
-            menuFav_.setChecked(favs_.contains(query));
+            menuFav_.setChecked(adapterAppList_.getFavs().contains(query));
             updateFavIcon();
             
             adapterAppList_.filter(qs);

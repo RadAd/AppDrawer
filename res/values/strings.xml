@@ -5,6 +5,7 @@
     <string name="open">Open</string>
     <string name="info">Info...</string>
     <string name="appstore">App Store...</string>
+    <string name="tags">Tags...</string>
     <string name="action_search">Search</string>
     <string name="action_favourite">Favourite</string>
     <string name="action_preferences">Preferences...</string>
