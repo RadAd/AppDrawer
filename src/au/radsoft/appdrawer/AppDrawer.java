@@ -12,6 +12,7 @@ import android.view.View;
 
 import android.widget.AdapterView;
 import android.widget.GridView;
+import android.widget.ProgressBar;
 import android.widget.SearchView;
 
 import android.graphics.drawable.StateListDrawable;
@@ -55,12 +56,83 @@ public class AppDrawer extends android.app.Activity implements AdapterView.OnIte
         GridView list = (GridView) findViewById(R.id.list);
         View progress = findViewById(R.id.progress);
         
-        adapterAppList_ = new AppListAdapter(getPackageManager(), getLayoutInflater(), progress, getDir("data", MODE_PRIVATE), getCacheDir());
+        adapterAppList_ = new AppListAdapter(getPackageManager(), getLayoutInflater(), getDir("data", MODE_PRIVATE), getCacheDir());
         list.setAdapter(adapterAppList_);
 		list.setOnItemClickListener(this);
         registerForContextMenu(list);
+        new LoadAppsAsyncTask(progress).execute();
 		
 		setFinishOnTouchOutside(true);
+    }
+    
+    private final class LoadAppsAsyncTask extends android.os.AsyncTask<Object, Integer, Object> implements AppListAdapter.Progress
+    {
+        private final View progress_;
+        private final ProgressBar progressBar_;
+
+        LoadAppsAsyncTask(View progress)
+        {
+            progress_ = progress;
+            if (progress_ != null)
+                progressBar_ = (ProgressBar) progress_.findViewById(R.id.progress_bar);
+            else
+                progressBar_ = null;
+        }
+
+        @Override
+        protected Object doInBackground(Object... nothing)
+        {
+            adapterAppList_.loadApps(this);
+            return null;
+        }
+        
+        @Override
+        protected void onProgressUpdate(Integer... progress)
+        {
+            if (progressBar_ != null)
+            {
+                if (progress.length > 1)
+                {
+                    progress_.setVisibility(View.VISIBLE);
+                    progressBar_.setMax(progress[1]);
+                    progressBar_.setProgress(progress[0]);
+                }
+                else if (progress.length > 0)
+                    progressBar_.incrementProgressBy(progress[0]);
+            }
+        }
+        
+        @Override
+        protected void onPostExecute(Object result)
+        {
+            super.onPostExecute(result);
+            if (progress_ != null)
+                progress_.setVisibility(View.GONE);
+                
+            String query = searchText_.toLowerCase();
+            String[] qs = query.split(" ");
+            adapterAppList_.filter(qs);
+        }
+
+        @Override
+        protected void onCancelled()
+        {
+            super.onCancelled();
+            if (progress_ != null)
+                progress_.setVisibility(View.GONE);
+        }
+        
+        @Override // From AppListAdapter.Progress
+        public void startProgress(int count)
+        {
+            publishProgress(0, count);
+        }
+        
+        @Override // From AppListAdapter.Progress
+        public void incrementProgress(int i)
+        {
+            publishProgress(i);
+        }
     }
     
     private void updateFavIcon()

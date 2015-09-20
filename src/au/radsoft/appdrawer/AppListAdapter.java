@@ -1,7 +1,6 @@
 package au.radsoft.appdrawer;
 
 import android.widget.ImageView;
-import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import android.view.LayoutInflater;
@@ -123,17 +122,8 @@ public class AppListAdapter extends android.widget.BaseAdapter
     
     private final class FilterAsyncTask extends AsyncTask<String, Integer, List<App>>
     {
-        private final View progress_;
-        private final ProgressBar progressBar_;
-
-        FilterAsyncTask(View progress)
+        FilterAsyncTask()
         {
-            progress_ = progress;
-            if (progress_ != null)
-                progressBar_ = (ProgressBar) progress_.findViewById(R.id.progress_bar);
-            else
-                progressBar_ = null;
-
             if (filterAsyncTask_ != null)
                 filterAsyncTask_.cancel(false);
             filterAsyncTask_ = this;
@@ -142,24 +132,7 @@ public class AppListAdapter extends android.widget.BaseAdapter
         @Override
         protected List<App> doInBackground(String... texts)
         {
-            loadApps();
             return filterApps(texts, this);
-        }
-        
-        @Override
-        protected void onProgressUpdate(Integer... progress)
-        {
-            if (progressBar_ != null)
-            {
-                if (progress.length > 1)
-                {
-                    progress_.setVisibility(View.VISIBLE);
-                    progressBar_.setMax(progress[1]);
-                    progressBar_.setProgress(progress[0]);
-                }
-                else if (progress.length > 0)
-                    progressBar_.incrementProgressBy(progress[0]);
-            }
         }
         
         @Override
@@ -169,102 +142,98 @@ public class AppListAdapter extends android.widget.BaseAdapter
             if (filterAsyncTask_ == this)
                 filterAsyncTask_ = null;
             apps_ = result;
-            if (progress_ != null)
-                progress_.setVisibility(View.GONE);
             notifyDataSetChanged();
         }
+    }
+    
+    interface Progress
+    {
+        void startProgress(int count);
+        void incrementProgress(int i);
+    }
 
-        @Override
-        protected void onCancelled()
+    void loadApps(Progress p)
+    {
+        if (all_ != null)
+            return;
+            
         {
-            super.onCancelled();
-            if (progress_ != null)
-                progress_.setVisibility(View.GONE);
+            Set<String> favs = (Set<String>) Utils.loadObject(favsFile_);
+            if (favs != null)
+                favs_ = favs;
+            else
+            {
+                favs_.add("google");
+                favs_.add("microsoft");
+                favs_.add("samsung");
+                favs_.add("games");
+                favs_.add("utilities");
+            }
         }
         
-        private /*synchronized*/ void loadApps()
         {
-            if (all_ != null)
-                return;
+            Map<String, Set<String>> tags = (Map<String, Set<String>>) Utils.loadObject(tagsFile_);
+            if (tags != null)
+                tags_ = tags;
+        }
+        // TODO Remove tags for apps no longer installed
+        
+        Map<String, Info> infoCache = (Map<String, Info>) Utils.loadObject(infoFile_);
+        if (infoCache == null)
+            infoCache = new java.util.HashMap();
+        Map<String, Info> infoCacheNew = new java.util.HashMap();
 
+        boolean showProgress = infoCache.isEmpty();
+        boolean dirty = false;
+        
+        List<App> apps = new java.util.ArrayList();
+
+        List<PackageInfo> installed = pm_.getInstalledPackages(0);
+        if (showProgress)
+            p.startProgress(installed.size());
+        for (PackageInfo pi : installed)
+        {
+            Info info = infoCache.get(pi.packageName);
+            Intent intent = null;
+
+            if (info == null
+                || pi.applicationInfo.enabled != info.enabled_
+                || pi.lastUpdateTime > info.lastUpdateTime_)
             {
-                Set<String> favs = (Set<String>) Utils.loadObject(favsFile_);
-                if (favs != null)
-                    favs_ = favs;
-                else
-                {
-                    favs_.add("google");
-                    favs_.add("microsoft");
-                    favs_.add("samsung");
-                    favs_.add("games");
-                    favs_.add("utilities");
-                }
+                intent = pi.applicationInfo.enabled ? pm_.getLaunchIntentForPackage(pi.applicationInfo.packageName) : null;
+                ResolveInfo ri = intent == null ? null : pm_.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY);
+                CharSequence label = ri != null ? ri.loadLabel(pm_) : pm_.getApplicationLabel(pi.applicationInfo);
+                String uri = intent == null ? null : intent.toURI().toString();
+                info = new Info(pi.applicationInfo.enabled, label, uri, pi.firstInstallTime, pi.lastUpdateTime);
+                dirty = true;
             }
-            
+            else
             {
-                Map<String, Set<String>> tags = (Map<String, Set<String>>) Utils.loadObject(tagsFile_);
-                if (tags != null)
-                    tags_ = tags;
-            }
-            // TODO Remove tags for apps no longer installed
-            
-            Map<String, Info> infoCache = (Map<String, Info>) Utils.loadObject(infoFile_);
-            if (infoCache == null)
-                infoCache = new java.util.HashMap();
-            Map<String, Info> infoCacheNew = new java.util.HashMap();
-
-            boolean showProgress = infoCache.isEmpty();
-            boolean dirty = false;
-            
-            List<App> apps = new java.util.ArrayList<App>();
-
-            List<PackageInfo> installed = pm_.getInstalledPackages(0);
-            if (showProgress)
-                publishProgress(0, installed.size());
-            for (PackageInfo pi : installed)
-            {
-                Info info = infoCache.get(pi.packageName);
-                Intent intent = null;
-
-                if (info == null
-                    || pi.applicationInfo.enabled != info.enabled_
-                    || pi.lastUpdateTime > info.lastUpdateTime_)
+                if (info.uri_ != null && !info.uri_.isEmpty())
                 {
-                    intent = pi.applicationInfo.enabled ? pm_.getLaunchIntentForPackage(pi.applicationInfo.packageName) : null;
-                    ResolveInfo ri = intent == null ? null : pm_.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY);
-                    CharSequence label = ri != null ? ri.loadLabel(pm_) : pm_.getApplicationLabel(pi.applicationInfo);
-                    String uri = intent == null ? null : intent.toURI().toString();
-                    info = new Info(pi.applicationInfo.enabled, label, uri, pi.firstInstallTime, pi.lastUpdateTime);
-                    dirty = true;
-                }
-                else
-                {
-                    if (info.uri_ != null && !info.uri_.isEmpty())
+                    try
                     {
-                        try
-                        {
-                            intent = Intent.parseUri(info.uri_, 0);
-                        }
-                        catch (java.net.URISyntaxException e)
-                        {
-                            // ignore
-                        }
+                        intent = Intent.parseUri(info.uri_, 0);
+                    }
+                    catch (java.net.URISyntaxException e)
+                    {
+                        // ignore
                     }
                 }
-                
-                App app = new App(pi.applicationInfo, info, intent);
-                apps.add(app);
-                infoCacheNew.put(pi.packageName, info);
-                
-                if (showProgress)
-                    publishProgress(1);
             }
             
-            if (dirty || infoCacheNew.size() != infoCache.size())
-                Utils.storeObject(infoFile_, infoCacheNew);
-                
-            all_ = apps;
+            App app = new App(pi.applicationInfo, info, intent);
+            apps.add(app);
+            infoCacheNew.put(pi.packageName, info);
+            
+            if (showProgress)
+                p.incrementProgress(1);
         }
+        
+        if (dirty || infoCacheNew.size() != infoCache.size())
+            Utils.storeObject(infoFile_, infoCacheNew);
+            
+        all_ = apps;
     }
     
     void setImageDrawable(ImageView v, App app)
@@ -484,28 +453,23 @@ public class AppListAdapter extends android.widget.BaseAdapter
     private final java.io.File tagsFile_;
     private final java.io.File infoFile_;
     
-    private List<App> apps_ = new java.util.ArrayList<App>();
+    private List<App> apps_ = new java.util.ArrayList();
     private FilterAsyncTask filterAsyncTask_ = null;
 
-    public AppListAdapter(PackageManager pm, LayoutInflater layoutInflater, View progress, java.io.File dataDir, java.io.File cacheDir)
+    public AppListAdapter(PackageManager pm, LayoutInflater layoutInflater, java.io.File dataDir, java.io.File cacheDir)
     {
         layoutInflater_ = layoutInflater;
         pm_ = pm;
         favsFile_ = new java.io.File(dataDir, "favourites");
         tagsFile_ = new java.io.File(dataDir, "tags");
         infoFile_ = new java.io.File(cacheDir, "info");
-        
-        String[] text = { };
-        new FilterAsyncTask(progress).execute(text);
-        //loadApps();
-        //apps_ = filterApps(null);
     }
     
     public void filter(String[] text)
     {
         if (all_ != null)
         {
-            new FilterAsyncTask(null).execute(text);
+            new FilterAsyncTask().execute(text);
         }
         else
         {
