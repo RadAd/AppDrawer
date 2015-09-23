@@ -34,8 +34,9 @@ public class AppListAdapter extends android.widget.BaseAdapter
     private static String TAG_ALL = "#all";
     private static String TAG_DISABLED = "#disabled";
     private static String TAG_NEW = "#new";
+    private static String TAG_NO_TAGS = "#notags";
     private static String TAG_UPDATED = "#updated";
-    private static final String[] specialtags_ = { AppListAdapter.TAG_DISABLED, AppListAdapter.TAG_NEW, AppListAdapter.TAG_UPDATED };
+    private static final String[] specialtags_ = { TAG_DISABLED, TAG_NEW, TAG_NO_TAGS, TAG_UPDATED };
     
     private static final class Info implements java.io.Serializable
     {
@@ -298,6 +299,7 @@ public class AppListAdapter extends android.widget.BaseAdapter
         boolean testDisabled = false;
         boolean testLaunch = true;
         boolean testInstallTime = false;
+        boolean testNoTags = false;
         boolean testUpdateTime = false;
         
         for (String t : text)
@@ -320,6 +322,10 @@ public class AppListAdapter extends android.widget.BaseAdapter
                 {
                     testInstallTime = true;
                 }
+                else if (TAG_NO_TAGS.equalsIgnoreCase(t))
+                {
+                    testNoTags = true;
+                }
                 else if (TAG_UPDATED.equalsIgnoreCase(t))
                 {
                     testUpdateTime = true;
@@ -333,6 +339,7 @@ public class AppListAdapter extends android.widget.BaseAdapter
                 && (!testDisabled    || !app.isEnabled())
                 && (!testLaunch      || app.canLaunch())
                 && (!testInstallTime || app.info_.firstInstallTime_ > time)
+                && (!testNoTags      || tags_.get(app.getPackageName()) == null)
                 && (!testUpdateTime  || app.info_.lastUpdateTime_ > time))
             {
                 boolean add = false;
