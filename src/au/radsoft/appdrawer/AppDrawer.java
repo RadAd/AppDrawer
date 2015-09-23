@@ -18,11 +18,10 @@ import android.widget.SearchView;
 import android.graphics.drawable.StateListDrawable;
 
 // TODO
-// Tags
 // Show recent apps (deprecated in android lollipop)
 // Listen to broadcasts for app install/uninstall to update list ie ACTION_PACKAGE_ADDED / ACTION_PACKAGE_REMOVED
 // finish after launching app
-// apply search when apps finally loaded
+// shortcuts for searches
 
 public class AppDrawer extends android.app.Activity implements AdapterView.OnItemClickListener, SearchView.OnQueryTextListener
 {
@@ -201,13 +200,18 @@ public class AppDrawer extends android.app.Activity implements AdapterView.OnIte
             {
                 if (searchText_.isEmpty())
                 {
-                    // TODO if string is empty popup explanation message
+                    android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(this);
+                    builder
+                        .setTitle("Favourite")
+                        .setMessage("Use the star to save your favourite search terms.")
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show();
                 }
                 else
                 {
                     item.setChecked(!item.isChecked());
                     updateFavIcon();
-                    adapterAppList_.updateFav(searchText_.toLowerCase(), item.isChecked());
+                    adapterAppList_.updateFav(this, searchText_.toLowerCase(), item.isChecked());
                 }
             }
             break;
@@ -279,10 +283,5 @@ public class AppDrawer extends android.app.Activity implements AdapterView.OnIte
     SharedPreferences getDefaultSharedPreferences()
     {
         return PreferenceManager.getDefaultSharedPreferences(this);
-    }
-    
-    void toast(String msg)
-    {
-        Utils.toast(this, msg);
     }
 }

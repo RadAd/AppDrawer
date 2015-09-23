@@ -8,6 +8,7 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 //import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
@@ -171,12 +172,10 @@ public class AppListAdapter extends android.widget.BaseAdapter
             }
         }
         
-        {
-            Map<String, Set<String>> tags = (Map<String, Set<String>>) Utils.loadObject(tagsFile_);
-            if (tags != null)
-                tags_ = tags;
-        }
-        // TODO Remove tags for apps no longer installed
+        Map<String, Set<String>> tags = (Map<String, Set<String>>) Utils.loadObject(tagsFile_);
+        if (tags == null)
+            tags = new java.util.HashMap();
+        Map<String, Set<String>> tagsNew = new java.util.HashMap();
         
         Map<String, Info> infoCache = (Map<String, Info>) Utils.loadObject(infoFile_);
         if (infoCache == null)
@@ -225,6 +224,9 @@ public class AppListAdapter extends android.widget.BaseAdapter
             App app = new App(pi.applicationInfo, info, intent);
             apps.add(app);
             infoCacheNew.put(pi.packageName, info);
+            Set<String> thisTags = tags.get(pi.packageName);
+            if (thisTags != null)
+                tagsNew.put(pi.packageName, thisTags);
             
             if (showProgress)
                 p.incrementProgress(1);
@@ -232,8 +234,11 @@ public class AppListAdapter extends android.widget.BaseAdapter
         
         if (dirty || infoCacheNew.size() != infoCache.size())
             Utils.storeObject(infoFile_, infoCacheNew);
+        if (tagsNew.size() != tags.size())
+            Utils.storeObject(tagsFile_, tagsNew);
             
         all_ = apps;
+        tags_ = tagsNew;
     }
     
     void setImageDrawable(ImageView v, App app)
@@ -408,13 +413,50 @@ public class AppListAdapter extends android.widget.BaseAdapter
         return suggestions;
     }
     
-    void updateFav(String text, boolean add)
+    void updateFav(Context context, String text, boolean add)
     {
         if (add)
             favs_.add(text);
         else
-            // TODO Also remove from all tags
-            favs_.remove(text);
+        {
+            int count = 0;
+            for (Set<String> thisTags : tags_.values())
+            {
+                if (thisTags.contains(text))
+                    ++count;
+            }
+            if (count <= 0)
+                favs_.remove(text);
+            else
+            {
+                android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(context);
+                builder
+                    .setTitle("Delete favourite?")
+                    .setMessage("This tag will be removed from " + count + " apps.")
+                    .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener()
+                        {
+                            private String text_;
+                            
+                            DialogInterface.OnClickListener init(String text)
+                            {
+                                text_ = text;
+                                return this;
+                            }
+                            
+                            @Override
+                            public void onClick(DialogInterface dialog, int which)
+                            {
+                                for (Set<String> thisTags : tags_.values())
+                                {
+                                    thisTags.remove(text_);
+                                }
+                                favs_.remove(text_);
+                            }
+                        }.init(text))
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show();
+            }
+        }
         
         Utils.storeObject(favsFile_, favs_);
     }
@@ -522,7 +564,7 @@ public class AppListAdapter extends android.widget.BaseAdapter
         return v;
     }
     
-    private static final class TagsDialogData implements android.content.DialogInterface.OnMultiChoiceClickListener
+    private static final class TagsDialogData implements DialogInterface.OnMultiChoiceClickListener
     {
         final CharSequence[] items_;
         final boolean[] selected_;
@@ -559,7 +601,7 @@ public class AppListAdapter extends android.widget.BaseAdapter
         }
         
         @Override
-        public void onClick(android.content.DialogInterface dialog, int which, boolean isChecked)
+        public void onClick(DialogInterface dialog, int which, boolean isChecked)
         {
             selected_[which] = isChecked;
             dirty_ = true;
@@ -597,10 +639,10 @@ public class AppListAdapter extends android.widget.BaseAdapter
                         //.setPositiveButton(R.string.ok, null)
                         //.setNegativeButton(R.string.cancel, null)
                         .show();
-                    dlg.setOnDismissListener(new android.content.DialogInterface.OnDismissListener()
+                    dlg.setOnDismissListener(new DialogInterface.OnDismissListener()
                         {
                             @Override
-                            public void onDismiss(android.content.DialogInterface dialog)
+                            public void onDismiss(DialogInterface dialog)
                             {
                                 if (data.dirty_)
                                 {
